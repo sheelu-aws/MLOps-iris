@@ -1,20 +1,24 @@
 from pathlib import Path
+
 import joblib
+import mlflow
+import mlflow.sklearn
+
 from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
 
 
 def train_model():
-    """Train a Random Forest Model using the Iris dataset."""
+    """Train a Random Forest model."""
 
-    # Load Dataset
     iris = load_iris()
+
     X = iris.data
     y = iris.target
 
-    # Split dataset
     X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,
@@ -23,26 +27,28 @@ def train_model():
         stratify=y
     )
 
-    # Create Model
+    # Model parameters
+    n_estimators = 50
+
     model = RandomForestClassifier(
-        n_estimators=100,
+        n_estimators=n_estimators,
         random_state=42
     )
 
-    # Train Model
+    # Train
     model.fit(X_train, y_train)
 
-    # Make Predictions
+    # Predict
     predictions = model.predict(X_test)
 
     # Calculate accuracy
     accuracy = accuracy_score(y_test, predictions)
 
-    return model, accuracy
+    return model, accuracy, n_estimators
 
 
 def save_model(model):
-    """Save the trained model to a file."""
+    """Save trained model."""
 
     model_dir = Path("models")
     model_dir.mkdir(exist_ok=True)
@@ -55,10 +61,30 @@ def save_model(model):
 
 
 if __name__ == "__main__":
-    model, accuracy = train_model()
 
-    print(f"Model trained with accuracy: {accuracy:.2f}")
+    # Start MLflow experiment
+    mlflow.set_experiment("Iris Classification")
 
-    model_path = save_model(model)
+    with mlflow.start_run():
 
-    print(f"Model saved to: {model_path}")
+        model, accuracy, n_estimators = train_model()
+
+        print(f"Model accuracy: {accuracy:.2f}")
+
+        # Log parameters
+        mlflow.log_param("model_type", "RandomForest")
+        mlflow.log_param("n_estimators", n_estimators)
+
+        # Log metric
+        mlflow.log_metric("accuracy", accuracy)
+
+        # Save model locally
+        model_path = save_model(model)
+
+        # Log model to MLflow
+        mlflow.sklearn.log_model(
+            model,
+            "iris_model"
+        )
+
+        print(f"Model saved to: {model_path}")
